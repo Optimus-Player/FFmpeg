@@ -1,0 +1,68 @@
+module CFFmpeg {
+   explicit module AVCodec [system] [extern_c] {
+      link "avcodec"
+      link "avutil"
+      link "iconv"
+      link "lzma"
+      link "m"
+      link framework "AudioToolbox"
+      link framework "CoreFoundation"
+      link framework "CoreMedia"
+      link framework "CoreServices"
+      link framework "CoreVideo"
+      link framework "VideoToolbox"
+
+      umbrella "libavcodec"
+      exclude header "libavcodec/d3d11va.h"
+      exclude header "libavcodec/dxva2.h"
+      exclude header "libavcodec/qsv.h"
+      exclude header "libavcodec/vdpau.h"
+      exclude header "libavcodec/xvmc.h"
+
+      export *
+   }
+
+   explicit module AVFormat [system] [extern_c] {
+      link "avcodec"
+      link "avformat"
+      link "avutil"
+      link "bz2"
+      link "m"
+      link framework "CoreFoundation"
+      link framework "Security"
+
+      umbrella "libavformat"
+
+      export *
+   }
+
+   explicit module AVUtil [system] [extern_c] {
+      link "avutil"
+      link "m"
+      link framework "CoreFoundation"
+      link framework "CoreMedia"
+      link framework "CoreServices"
+      link framework "CoreVideo"
+      link framework "VideoToolbox"
+
+      umbrella "libavutil"
+      exclude header "libavutil/hwcontext_cuda.h"
+      exclude header "libavutil/hwcontext_d3d11va.h"
+      exclude header "libavutil/hwcontext_dxva2.h"
+      exclude header "libavutil/hwcontext_qsv.h"
+      exclude header "libavutil/hwcontext_vaapi.h"
+      exclude header "libavutil/hwcontext_vdpau.h"
+
+      export *
+   }
+
+   explicit module SWScale [system] [extern_c] {
+      link "avutil"
+      link "m"
+      link "swscale"
+
+      umbrella "libswscale"
+
+      export *
+   }
+}

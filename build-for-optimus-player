@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+#
+# A script to build FFmpeg so that it may be embedded in the
+# Optimus Player macOS app.
+#
+# Copyright (c) 2019 Darren Mo. Licensed under LGPL version 2.1.
+#
+# TODO: Enable the following external libraries in order to
+# support more formats/codecs/protocols.
+#   AV1: libdav1d
+#   AviSynth: libavxsynth
+#   BluRay: libbluray
+#   CELT: libcelt
+#   codec2: libcodec2
+#   DASH: libxml2
+#   DVB teletext: libzvbi
+#   Game Music Emu: libgme
+#   Haivision SRT: libsrt
+#   iLBC: libilbc
+#   MOD: libopenmpt
+#   SAMBA: libsmbclient
+#   SFTP: libssh
+#   Speex: libspeex
+#   SVG: librsvg
+
+SCRIPT_DIR="$(dirname "$BASH_SOURCE")"
+cd "$SCRIPT_DIR"
+
+export DESTDIR="$SCRIPT_DIR/optimus-player-build"
+
+make clean
+rm -rf "$DESTDIR"
+
+./configure \
+   --prefix="/" \
+   --install-name-dir="@executable_path/../Frameworks" \
+   --disable-static \
+   --enable-shared \
+   --disable-programs \
+   --disable-doc \
+   --disable-avdevice \
+   --disable-swresample \
+   --disable-postproc \
+   --disable-avfilter \
+   --disable-w32threads \
+   --disable-os2threads \
+   --disable-encoders \
+   --disable-muxers \
+   --disable-devices \
+   --disable-filters \
+   --disable-amf \
+   --disable-cuvid \
+   --disable-d3d11va \
+   --disable-dxva2 \
+   --disable-ffnvcodec \
+   --disable-nvdec \
+   --disable-vaapi \
+   --disable-vdpau \
+   || exit $?
+
+make install || exit $?
+
+cp module.modulemap "$DESTDIR/include/"
