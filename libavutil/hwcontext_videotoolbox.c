@@ -42,6 +42,7 @@ static const struct {
 #ifdef kCFCoreFoundationVersionNumber10_7
     { kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,  AV_PIX_FMT_NV12 },
 #endif
+    { kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange, AV_PIX_FMT_P010 },
 };
 
 enum AVPixelFormat av_map_videotoolbox_format_to_pixfmt(uint32_t cv_fmt)
