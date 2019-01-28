@@ -1025,7 +1025,7 @@ static enum AVPixelFormat videotoolbox_best_pixel_format(AVCodecContext *avctx) 
         }
     }
 
-    return AV_PIX_FMT_NV12; // same as av_videotoolbox_alloc_context()
+    return AV_PIX_FMT_UYVY422; // same as av_videotoolbox_alloc_context()
 }
 
 static int videotoolbox_common_init(AVCodecContext *avctx)
@@ -1211,7 +1211,7 @@ static AVVideotoolboxContext *av_videotoolbox_alloc_context_with_pix_fmt(enum AV
 
         OSType cv_pix_fmt_type = av_map_videotoolbox_format_from_pixfmt(pix_fmt);
         if (cv_pix_fmt_type == 0) {
-            cv_pix_fmt_type = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange;
+            cv_pix_fmt_type = kCVPixelFormatType_422YpCbCr8;
         }
         ret->cv_pix_fmt_type = cv_pix_fmt_type;
     }
