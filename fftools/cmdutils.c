@@ -1286,6 +1286,96 @@ static int is_device(const AVClass *avclass)
     return AV_IS_INPUT_DEVICE(avclass->category) || AV_IS_OUTPUT_DEVICE(avclass->category);
 }
 
+int show_readable_file_types(void *optctx, const char *opt, const char *arg)
+{
+    printf("Description,File Extensions,MIME Types\n");
+
+    const AVInputFormat *input_format = NULL;
+    void *input_format_opaque = NULL;
+    while ((input_format = av_demuxer_iterate(&input_format_opaque)) != NULL) {
+        if (is_device(input_format->priv_class)) {
+            continue;
+        }
+
+        const char *name = input_format->name;
+        if (name == NULL) {
+            continue;
+        }
+
+        const AVOutputFormat *output_format = NULL;
+        void *output_format_opaque = NULL;
+        while ((output_format = av_muxer_iterate(&output_format_opaque)) != NULL) {
+            if (is_device(output_format->priv_class)) {
+                continue;
+            }
+            
+            const char *output_format_name = output_format->name;
+            if (output_format_name != NULL && strcmp(output_format_name, name) == 0) {
+                break;
+            }
+        }
+
+        const char *description = input_format->long_name;
+        if (description == NULL) {
+            description = name;
+        }
+
+        const char *input_file_extensions = input_format->extensions;
+        const char *output_file_extensions = (output_format != NULL) ? output_format->extensions : NULL;
+
+        size_t file_extensions_byte_count = 0;
+        if (input_file_extensions != NULL && output_file_extensions != NULL) {
+            file_extensions_byte_count = strlen(input_file_extensions) + 1 + strlen(output_file_extensions) + 1;
+        }
+        char file_extensions_buffer[file_extensions_byte_count];
+
+        const char *file_extensions = NULL;
+        if (input_file_extensions != NULL && output_file_extensions != NULL) {
+            snprintf(file_extensions_buffer, file_extensions_byte_count, "%s,%s", input_file_extensions, output_file_extensions);
+            file_extensions = (const char *)file_extensions_buffer;
+        } else if (input_file_extensions != NULL) {
+            file_extensions = input_file_extensions;
+        } else if (output_file_extensions != NULL) {
+            file_extensions = output_file_extensions;
+        } else {
+            size_t name_length = strlen(name);
+            if (name_length > 4 && strcmp(name + name_length - 4, "pipe") == 0) {
+                continue;
+            }
+
+            file_extensions = name;
+        }
+
+        const char *input_mime_types = input_format->mime_type;
+        const char *output_mime_types = (output_format != NULL) ? output_format->mime_type : NULL;
+
+        size_t mime_types_byte_count = 0;
+        if (input_mime_types != NULL && output_mime_types != NULL) {
+            mime_types_byte_count = strlen(input_mime_types) + 1 + strlen(output_mime_types) + 1;
+        }
+        char mime_types_buffer[mime_types_byte_count];
+
+        const char *mime_types = NULL;
+        if (input_mime_types != NULL && output_mime_types != NULL) {
+            snprintf(mime_types_buffer, mime_types_byte_count, "%s,%s", input_mime_types, output_mime_types);
+            mime_types = (const char *)mime_types_buffer;
+        } else if (input_mime_types != NULL) {
+            mime_types = input_mime_types;
+        } else if (output_mime_types != NULL) {
+            mime_types = output_mime_types;
+        } else {
+            mime_types = "";
+        }
+
+        printf("\"%s\",\"%s\",\"%s\"\n",
+               description,
+               file_extensions,
+               mime_types);
+    }
+
+    return 0;
+}
+
 static int show_formats_devices(void *optctx, const char *opt, const char *arg, int device_only, int muxdemuxers)
 {
     void *ifmt_opaque = NULL;
