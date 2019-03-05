@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#
+# A script to build the FFmpeg programs. This script is derived
+# from the `build-for-optimus-player` script.
+#
+# Copyright (c) 2019 Darren Mo. Licensed under LGPL version 2.1.
+
+SCRIPT_DIR="$(dirname "$BASH_SOURCE")"
+cd "$SCRIPT_DIR"
+
+export DESTDIR="$SCRIPT_DIR/programs-build"
+
+make clean
+rm -rf "$DESTDIR"
+
+./configure \
+   --prefix="/" \
+   --disable-doc \
+   --disable-w32threads \
+   --disable-os2threads \
+   --disable-amf \
+   --disable-cuvid \
+   --disable-d3d11va \
+   --disable-dxva2 \
+   --disable-ffnvcodec \
+   --disable-nvdec \
+   --disable-vaapi \
+   --disable-vdpau \
+   || exit $?
+
+make install || exit $?
