@@ -220,6 +220,7 @@ void show_help_options(const OptionDef *options, const char *msg, int req_flags,
     { "-help",       OPT_EXIT,             { .func_arg = show_help },        "show help", "topic" },                    \
     { "version",     OPT_EXIT,             { .func_arg = show_version },     "show version" },                          \
     { "buildconf",   OPT_EXIT,             { .func_arg = show_buildconf },   "show build configuration" },              \
+    { "readable_file_types", OPT_EXIT,     { .func_arg = show_readable_file_types }, "show readable file types" },      \
     { "formats",     OPT_EXIT,             { .func_arg = show_formats },     "show available formats" },                \
     { "muxers",      OPT_EXIT,             { .func_arg = show_muxers },      "show available muxers" },                 \
     { "demuxers",    OPT_EXIT,             { .func_arg = show_demuxers },    "show available demuxers" },               \
@@ -469,6 +470,13 @@ int show_buildconf(void *optctx, const char *opt, const char *arg);
  * This option processing function does not utilize the arguments.
  */
 int show_license(void *optctx, const char *opt, const char *arg);
+
+/**
+ * Print a listing containing all the readable file types supported
+ * by the program.
+ * This option processing function does not utilize the arguments.
+ */
+int show_readable_file_types(void *optctx, const char *opt, const char *arg);
 
 /**
  * Print a listing containing all the formats supported by the
