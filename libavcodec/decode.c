@@ -1104,8 +1104,14 @@ int avcodec_decode_subtitle2(AVCodecContext *avctx, AVSubtitle *sub,
             }
         }
 
-        if (*got_sub_ptr)
-            avctx->frame_number++;
+        if (*got_sub_ptr) {
+            if (avpkt->flags & AV_PKT_FLAG_DISCARD) {
+                *got_sub_ptr = 0;
+                avsubtitle_free(sub);
+            } else {
+                avctx->frame_number++;
+            }
+        }
     }
 
     return ret;
