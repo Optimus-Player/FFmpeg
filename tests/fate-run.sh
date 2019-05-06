@@ -76,8 +76,8 @@ oneline(){
 }
 
 run(){
-    test "${V:-0}" -gt 0 && echo "$target_exec" $target_path/"$@" >&3
-    $target_exec $target_path/"$@"
+    test "${V:-0}" -gt 0 && echo "$target_exec" "$target_path/$@" >&3
+    $target_exec "$target_path/$@"
 }
 
 runecho(){
