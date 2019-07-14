@@ -603,16 +603,25 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
     if (ret >= pkt->size || ret < 0) {
         av_packet_unref(pkt);
+        avci->last_pkt_props->pts = AV_NOPTS_VALUE;
+        avci->last_pkt_props->dts = AV_NOPTS_VALUE;
     } else {
         int consumed = ret;
-
         pkt->data                += consumed;
         pkt->size                -= consumed;
         avci->last_pkt_props->size -= consumed; // See extract_packet_props() comment.
-        pkt->pts                  = AV_NOPTS_VALUE;
-        pkt->dts                  = AV_NOPTS_VALUE;
-        avci->last_pkt_props->pts = AV_NOPTS_VALUE;
-        avci->last_pkt_props->dts = AV_NOPTS_VALUE;
+
+        if (got_frame) {
+            // TODO: Do the same for video and subtitles before introducing decoders of those types
+            // that have AV_CODEC_CAP_SUBFRAMES set. (We need a robust way to get the duration of a
+            // video or subtitle frame before we can do this.)
+            if (avctx->codec->type == AVMEDIA_TYPE_AUDIO) {
+                int64_t frame_duration = av_rescale_q(frame->nb_samples,
+                                                      (AVRational){1, avctx->sample_rate},
+                                                      avctx->pkt_timebase);
+                avci->last_pkt_props->pts += frame_duration;
+            }
+        }
     }
 
     if (got_frame)
@@ -625,6 +634,10 @@ static int decode_simple_receive_frame(AVCodecContext *avctx, AVFrame *frame)
 {
     int ret;
 
+    // Some audio decoders may consume partial data without returning
+    // a frame (e.g. wmapro). There is no way to make the caller call
+    // avcodec_receive_frame() again without returning a frame, so try
+    // to decode more in these cases.
     while (!frame->buf[0]) {
         ret = decode_simple_internal(avctx, frame);
         if (ret < 0)
