@@ -36,6 +36,7 @@ rm -rf "$DESTDIR"
    --install-name-dir="@executable_path/../Frameworks" \
    --disable-static \
    --enable-shared \
+   --extra-ldflags="-Z -L/usr/lib -F/System/Library/Frameworks" \
    --disable-programs \
    --disable-doc \
    --disable-avdevice \
