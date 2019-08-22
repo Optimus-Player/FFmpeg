@@ -5,6 +5,8 @@ module CFFmpeg {
       link "iconv"
       link "lzma"
       link "m"
+      link "pthread"
+      link "z"
       link framework "AudioToolbox"
       link framework "CoreFoundation"
       link framework "CoreMedia"
@@ -28,6 +30,7 @@ module CFFmpeg {
       link "avutil"
       link "bz2"
       link "m"
+      link "z"
       link framework "CoreFoundation"
       link framework "Security"
 
@@ -39,6 +42,7 @@ module CFFmpeg {
    explicit module AVUtil [system] [extern_c] {
       link "avutil"
       link "m"
+      link "pthread"
       link framework "CoreFoundation"
       link framework "CoreMedia"
       link framework "CoreServices"
