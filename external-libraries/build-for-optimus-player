@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#
+# A script to build external libraries so that they may be linked
+# by FFmpeg and embedded in the Optimus Player macOS app.
+#
+# Copyright (c) 2019 Darren Mo. Licensed under LGPL version 2.1.
+
+if [ "$#" -ne 1 ]; then
+   echo "Usage: \"$0\" install_directory" 1>&2
+   exit 2
+fi
+
+PREFIX="$1"
+
+SCRIPT_DIR="$(dirname "$BASH_SOURCE")"
+cd "$SCRIPT_DIR"
+
+INSTALL_NAME_DIR="@executable_path/../Frameworks"
+for PATH_TO_DYLIB in "$(find -E "$PREFIX/lib" -regex '.*/[^/.]+\.[0123456789]+\.dylib')"; do
+   DYLIB_FILE_NAME="$(basename "$PATH_TO_DYLIB")"
+   install_name_tool -id "$INSTALL_NAME_DIR/$DYLIB_FILE_NAME" "$PATH_TO_DYLIB" || exit $?
+done

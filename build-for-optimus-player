@@ -26,11 +26,20 @@
 SCRIPT_DIR="$(dirname "$BASH_SOURCE")"
 cd "$SCRIPT_DIR"
 
+# Hack: We install the external libraries in a directory whose name
+# does not contain spaces because the configure script does not
+# properly handle spaces in the include/library paths returned by
+# pkg-config.
+EXTERNAL_LIBRARIES_DIR="$HOME/Library/org.ffmpeg.optimus-player"
+rm -rf "$EXTERNAL_LIBRARIES_DIR"
+external-libraries/build-for-optimus-player "$EXTERNAL_LIBRARIES_DIR" || exit $?
+
 export DESTDIR="$SCRIPT_DIR/optimus-player-build"
 
 make clean
 rm -rf "$DESTDIR"
 
+export PKG_CONFIG_PATH="$EXTERNAL_LIBRARIES_DIR/lib/pkgconfig"
 ./configure \
    --prefix="/" \
    --install-name-dir="@executable_path/../Frameworks" \
@@ -62,3 +71,4 @@ rm -rf "$DESTDIR"
 make install || exit $?
 
 cp module.modulemap "$DESTDIR/include/"
+cp "$EXTERNAL_LIBRARIES_DIR"/lib/*.dylib "$DESTDIR/lib/"
