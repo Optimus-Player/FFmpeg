@@ -15,6 +15,10 @@ PREFIX="$1"
 SCRIPT_DIR="$(dirname "$BASH_SOURCE")"
 cd "$SCRIPT_DIR"
 
+cd "dav1d"
+meson --prefix="$PREFIX" build --buildtype release || exit $?
+ninja install -C build || exit $?
+
 INSTALL_NAME_DIR="@executable_path/../Frameworks"
 for PATH_TO_DYLIB in "$(find -E "$PREFIX/lib" -regex '.*/[^/.]+\.[0123456789]+\.dylib')"; do
    DYLIB_FILE_NAME="$(basename "$PATH_TO_DYLIB")"
