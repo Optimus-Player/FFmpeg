@@ -7,7 +7,6 @@
 #
 # TODO: Enable the following external libraries in order to
 # support more formats/codecs/protocols.
-#   AV1: libdav1d
 #   AviSynth: libavxsynth
 #   BluRay: libbluray
 #   CELT: libcelt
@@ -65,6 +64,7 @@ export PKG_CONFIG_PATH="$EXTERNAL_LIBRARIES_DIR/lib/pkgconfig"
    --disable-nvdec \
    --disable-vaapi \
    --disable-vdpau \
+   --enable-libdav1d \
    || exit $?
 
 make install || exit $?
