@@ -443,7 +443,8 @@ int ff_seek_frame_binary(AVFormatContext *s, int stream_index,
 void ff_update_cur_dts(AVFormatContext *s, AVStream *ref_st, int64_t timestamp);
 
 int ff_find_last_ts(AVFormatContext *s, int stream_index, int64_t *ts, int64_t *pos,
-                    int64_t (*read_timestamp)(struct AVFormatContext *, int , int64_t *, int64_t ));
+                    int64_t (*read_timestamp)(struct AVFormatContext *, int, int64_t *, int64_t),
+                    int64_t (*read_timestamp2)(struct AVFormatContext *, int, int64_t *, int64_t, int));
 
 /**
  * Perform a binary search using read_timestamp().
@@ -456,7 +457,8 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index,
                       int64_t pos_max, int64_t pos_limit,
                       int64_t ts_min, int64_t ts_max,
                       int flags, int64_t *ts_ret,
-                      int64_t (*read_timestamp)(struct AVFormatContext *, int , int64_t *, int64_t ));
+                      int64_t (*read_timestamp)(struct AVFormatContext *, int, int64_t *, int64_t),
+                      int64_t (*read_timestamp2)(struct AVFormatContext *, int, int64_t *, int64_t, int));
 
 /**
  * Set the time base and wrapping info for a given stream. This will be used

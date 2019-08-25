@@ -2160,6 +2160,15 @@ static int64_t ff_read_timestamp(AVFormatContext *s, int stream_index, int64_t *
     return ts;
 }
 
+static int64_t ff_read_timestamp2(AVFormatContext *s, int stream_index, int64_t *ppos, int64_t pos_limit, int prefer_keyframe,
+                                  int64_t (*read_timestamp2)(struct AVFormatContext *, int, int64_t *, int64_t, int))
+{
+    int64_t ts = read_timestamp2(s, stream_index, ppos, pos_limit, prefer_keyframe);
+    if (stream_index >= 0)
+        ts = wrap_timestamp(s->streams[stream_index], ts);
+    return ts;
+}
+
 int ff_seek_frame_binary(AVFormatContext *s, int stream_index,
                          int64_t target_ts, int flags)
 {
@@ -2214,7 +2223,7 @@ int ff_seek_frame_binary(AVFormatContext *s, int stream_index,
     }
 
     pos = ff_gen_search(s, stream_index, target_ts, pos_min, pos_max, pos_limit,
-                        ts_min, ts_max, flags, &ts, avif->read_timestamp);
+                        ts_min, ts_max, flags, &ts, avif->read_timestamp, avif->read_timestamp2);
     if (pos < 0)
         return -1;
 
@@ -2229,7 +2238,8 @@ int ff_seek_frame_binary(AVFormatContext *s, int stream_index,
 }
 
 int ff_find_last_ts(AVFormatContext *s, int stream_index, int64_t *ts, int64_t *pos,
-                    int64_t (*read_timestamp)(struct AVFormatContext *, int , int64_t *, int64_t ))
+                    int64_t (*read_timestamp)(struct AVFormatContext *, int, int64_t *, int64_t),
+                    int64_t (*read_timestamp2)(struct AVFormatContext *, int, int64_t *, int64_t, int))
 {
     int64_t step = 1024;
     int64_t limit, ts_max;
@@ -2238,8 +2248,13 @@ int ff_find_last_ts(AVFormatContext *s, int stream_index, int64_t *ts, int64_t *
     do {
         limit = pos_max;
         pos_max = FFMAX(0, (pos_max) - step);
-        ts_max  = ff_read_timestamp(s, stream_index,
-                                    &pos_max, limit, read_timestamp);
+        if (read_timestamp2) {
+            ts_max  = ff_read_timestamp2(s, stream_index,
+                                         &pos_max, limit, 0, read_timestamp2);
+        } else {
+            ts_max  = ff_read_timestamp(s, stream_index,
+                                        &pos_max, limit, read_timestamp);
+        }
         step   += step;
     } while (ts_max == AV_NOPTS_VALUE && 2*limit > step);
     if (ts_max == AV_NOPTS_VALUE)
@@ -2247,8 +2262,14 @@ int ff_find_last_ts(AVFormatContext *s, int stream_index, int64_t *ts, int64_t *
 
     for (;;) {
         int64_t tmp_pos = pos_max + 1;
-        int64_t tmp_ts  = ff_read_timestamp(s, stream_index,
-                                            &tmp_pos, INT64_MAX, read_timestamp);
+        int64_t tmp_ts;
+        if (read_timestamp2) {
+            tmp_ts  = ff_read_timestamp2(s, stream_index,
+                                         &tmp_pos, INT64_MAX, 0, read_timestamp2);
+        } else {
+            tmp_ts  = ff_read_timestamp(s, stream_index,
+                                        &tmp_pos, INT64_MAX, read_timestamp);
+        }
         if (tmp_ts == AV_NOPTS_VALUE)
             break;
         av_assert0(tmp_pos > pos_max);
@@ -2271,7 +2292,9 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
                       int64_t ts_min, int64_t ts_max,
                       int flags, int64_t *ts_ret,
                       int64_t (*read_timestamp)(struct AVFormatContext *, int,
-                                                int64_t *, int64_t))
+                                                int64_t *, int64_t),
+                      int64_t (*read_timestamp2)(struct AVFormatContext *, int,
+                                                 int64_t *, int64_t, int))
 {
     int64_t pos, ts;
     int64_t start_pos;
@@ -2282,7 +2305,11 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
 
     if (ts_min == AV_NOPTS_VALUE) {
         pos_min = s->internal->data_offset;
-        ts_min  = ff_read_timestamp(s, stream_index, &pos_min, INT64_MAX, read_timestamp);
+        if (read_timestamp2) {
+            ts_min = ff_read_timestamp2(s, stream_index, &pos_min, INT64_MAX, 0, read_timestamp2);
+        } else {
+            ts_min = ff_read_timestamp(s, stream_index, &pos_min, INT64_MAX, read_timestamp);
+        }
         if (ts_min == AV_NOPTS_VALUE)
             return -1;
     }
@@ -2293,7 +2320,7 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
     }
 
     if (ts_max == AV_NOPTS_VALUE) {
-        if ((ret = ff_find_last_ts(s, stream_index, &ts_max, &pos_max, read_timestamp)) < 0)
+        if ((ret = ff_find_last_ts(s, stream_index, &ts_max, &pos_max, read_timestamp, read_timestamp2)) < 0)
             return ret;
         pos_limit = pos_max;
     }
@@ -2333,7 +2360,12 @@ int64_t ff_gen_search(AVFormatContext *s, int stream_index, int64_t target_ts,
         start_pos = pos;
 
         // May pass pos_limit instead of -1.
-        ts = ff_read_timestamp(s, stream_index, &pos, INT64_MAX, read_timestamp);
+        if (read_timestamp2) {
+            int prefer_keyframe = (flags & AVSEEK_FLAG_ANY) == 0;
+            ts = ff_read_timestamp2(s, stream_index, &pos, INT64_MAX, prefer_keyframe, read_timestamp2);
+        } else {
+            ts = ff_read_timestamp(s, stream_index, &pos, INT64_MAX, read_timestamp);
+        }
         if (pos == pos_max)
             no_change++;
         else
@@ -2492,7 +2524,7 @@ static int seek_frame_internal(AVFormatContext *s, int stream_index,
     if (ret >= 0)
         return 0;
 
-    if (s->iformat->read_timestamp &&
+    if ((s->iformat->read_timestamp2 || s->iformat->read_timestamp) &&
         !(s->iformat->flags & AVFMT_NOBINSEARCH)) {
         ff_read_frame_flush(s);
         return ff_seek_frame_binary(s, stream_index, timestamp, flags);
@@ -2562,7 +2594,7 @@ int avformat_seek_file(AVFormatContext *s, int stream_index, int64_t min_ts,
         return ret;
     }
 
-    if (s->iformat->read_timestamp) {
+    if (s->iformat->read_timestamp2 || s->iformat->read_timestamp) {
         // try to seek via read_timestamp()
     }
 
