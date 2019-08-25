@@ -3210,8 +3210,11 @@ static int64_t mpegts_get_dts(AVFormatContext *s, int stream_index,
         if (ret < 0)
             return AV_NOPTS_VALUE;
         if (pkt.dts != AV_NOPTS_VALUE && pkt.pos >= 0) {
+            int is_keyframe = (pkt.flags & AV_PKT_FLAG_KEY) != 0;
+
             ff_reduce_index(s, pkt.stream_index);
-            av_add_index_entry(s->streams[pkt.stream_index], pkt.pos, pkt.dts, 0, 0, AVINDEX_KEYFRAME /* FIXME keyframe? */);
+            av_add_index_entry(s->streams[pkt.stream_index], pkt.pos, pkt.dts, 0, 0, is_keyframe ? AVINDEX_KEYFRAME : 0);
+
             if (pkt.stream_index == stream_index && pkt.pos >= *ppos) {
                 int64_t dts = pkt.dts;
                 *ppos = pkt.pos;
