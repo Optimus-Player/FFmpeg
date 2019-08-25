@@ -653,7 +653,7 @@ static int64_t find_duration(NUTContext *nut, int64_t filesize)
     AVFormatContext *s = nut->avf;
     int64_t duration = 0;
 
-    ff_find_last_ts(s, -1, &duration, NULL, nut_read_timestamp);
+    ff_find_last_ts(s, -1, &duration, NULL, nut_read_timestamp, NULL);
 
     if(duration > 0)
         s->duration_estimation_method = AVFMT_DURATION_FROM_PTS;
@@ -1251,7 +1251,7 @@ static int read_seek(AVFormatContext *s, int stream_index,
         pos = ff_gen_search(s, -1, dummy.ts, next_node[0]->pos,
                             next_node[1]->pos, next_node[1]->pos,
                             next_node[0]->ts, next_node[1]->ts,
-                            AVSEEK_FLAG_BACKWARD, &ts, nut_read_timestamp);
+                            AVSEEK_FLAG_BACKWARD, &ts, nut_read_timestamp, NULL);
         if (pos < 0)
             return pos;
 
@@ -1263,7 +1263,7 @@ static int read_seek(AVFormatContext *s, int stream_index,
             pos2 = ff_gen_search(s, -2, dummy.pos, next_node[0]->pos,
                                  next_node[1]->pos, next_node[1]->pos,
                                  next_node[0]->back_ptr, next_node[1]->back_ptr,
-                                 flags, &ts, nut_read_timestamp);
+                                 flags, &ts, nut_read_timestamp, NULL);
             if (pos2 >= 0)
                 pos = pos2;
             // FIXME dir but I think it does not matter

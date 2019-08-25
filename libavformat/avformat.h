@@ -741,6 +741,7 @@ typedef struct AVInputFormat {
      * Get the next timestamp in stream[stream_index].time_base units.
      * @return the timestamp or AV_NOPTS_VALUE if an error occurred
      */
+    attribute_deprecated
     int64_t (*read_timestamp)(struct AVFormatContext *s, int stream_index,
                               int64_t *pos, int64_t pos_limit);
 
@@ -781,6 +782,14 @@ typedef struct AVInputFormat {
      * @see avdevice_capabilities_free() for more details.
      */
     int (*free_device_capabilities)(struct AVFormatContext *s, struct AVDeviceCapabilitiesQuery *caps);
+
+    /**
+     * Get the next timestamp in stream[stream_index].time_base units.
+     * @param prefer_keyframe Whether to skip over non-keyframe packets (if possible).
+     * @return the timestamp or AV_NOPTS_VALUE if an error occurred
+     */
+    int64_t (*read_timestamp2)(struct AVFormatContext *s, int stream_index,
+                               int64_t *pos, int64_t pos_limit, int prefer_keyframe);
 } AVInputFormat;
 /**
  * @}
