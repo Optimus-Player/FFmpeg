@@ -3193,7 +3193,7 @@ static av_unused int64_t mpegts_get_pcr(AVFormatContext *s, int stream_index,
 }
 
 static int64_t mpegts_get_dts(AVFormatContext *s, int stream_index,
-                              int64_t *ppos, int64_t pos_limit)
+                              int64_t *ppos, int64_t pos_limit, int prefer_keyframe)
 {
     MpegTSContext *ts = s->priv_data;
     int64_t pos;
@@ -3209,13 +3209,14 @@ static int64_t mpegts_get_dts(AVFormatContext *s, int stream_index,
         ret = av_read_frame(s, &pkt);
         if (ret < 0)
             return AV_NOPTS_VALUE;
+
         if (pkt.dts != AV_NOPTS_VALUE && pkt.pos >= 0) {
             int is_keyframe = (pkt.flags & AV_PKT_FLAG_KEY) != 0;
 
             ff_reduce_index(s, pkt.stream_index);
             av_add_index_entry(s->streams[pkt.stream_index], pkt.pos, pkt.dts, 0, 0, is_keyframe ? AVINDEX_KEYFRAME : 0);
 
-            if (pkt.stream_index == stream_index && pkt.pos >= *ppos) {
+            if (pkt.stream_index == stream_index && pkt.pos >= *ppos && (!prefer_keyframe || is_keyframe)) {
                 int64_t dts = pkt.dts;
                 *ppos = pkt.pos;
                 av_packet_unref(&pkt);
@@ -3283,26 +3284,26 @@ void avpriv_mpegts_parse_close(MpegTSContext *ts)
 }
 
 AVInputFormat ff_mpegts_demuxer = {
-    .name           = "mpegts",
-    .long_name      = NULL_IF_CONFIG_SMALL("MPEG-TS (MPEG-2 Transport Stream)"),
-    .priv_data_size = sizeof(MpegTSContext),
-    .read_probe     = mpegts_probe,
-    .read_header    = mpegts_read_header,
-    .read_packet    = mpegts_read_packet,
-    .read_close     = mpegts_read_close,
-    .read_timestamp = mpegts_get_dts,
-    .flags          = AVFMT_SHOW_IDS | AVFMT_TS_DISCONT,
-    .priv_class     = &mpegts_class,
+    .name            = "mpegts",
+    .long_name       = NULL_IF_CONFIG_SMALL("MPEG-TS (MPEG-2 Transport Stream)"),
+    .priv_data_size  = sizeof(MpegTSContext),
+    .read_probe      = mpegts_probe,
+    .read_header     = mpegts_read_header,
+    .read_packet     = mpegts_read_packet,
+    .read_close      = mpegts_read_close,
+    .read_timestamp2 = mpegts_get_dts,
+    .flags           = AVFMT_SHOW_IDS | AVFMT_TS_DISCONT,
+    .priv_class      = &mpegts_class,
 };
 
 AVInputFormat ff_mpegtsraw_demuxer = {
-    .name           = "mpegtsraw",
-    .long_name      = NULL_IF_CONFIG_SMALL("raw MPEG-TS (MPEG-2 Transport Stream)"),
-    .priv_data_size = sizeof(MpegTSContext),
-    .read_header    = mpegts_read_header,
-    .read_packet    = mpegts_raw_read_packet,
-    .read_close     = mpegts_read_close,
-    .read_timestamp = mpegts_get_dts,
-    .flags          = AVFMT_SHOW_IDS | AVFMT_TS_DISCONT,
-    .priv_class     = &mpegtsraw_class,
+    .name            = "mpegtsraw",
+    .long_name       = NULL_IF_CONFIG_SMALL("raw MPEG-TS (MPEG-2 Transport Stream)"),
+    .priv_data_size  = sizeof(MpegTSContext),
+    .read_header     = mpegts_read_header,
+    .read_packet     = mpegts_raw_read_packet,
+    .read_close      = mpegts_read_close,
+    .read_timestamp2 = mpegts_get_dts,
+    .flags           = AVFMT_SHOW_IDS | AVFMT_TS_DISCONT,
+    .priv_class      = &mpegtsraw_class,
 };
