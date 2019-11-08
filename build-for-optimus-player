@@ -40,7 +40,6 @@ rm -rf "$DESTDIR"
    --disable-programs \
    --disable-doc \
    --disable-avdevice \
-   --disable-swresample \
    --disable-postproc \
    --disable-avfilter \
    --disable-w32threads \

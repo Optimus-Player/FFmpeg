@@ -6,6 +6,7 @@ module CFFmpeg {
       link "lzma"
       link "m"
       link "pthread"
+      link "swresample"
       link "z"
       link framework "AudioToolbox"
       link framework "CoreFoundation"
@@ -56,6 +57,16 @@ module CFFmpeg {
       exclude header "libavutil/hwcontext_qsv.h"
       exclude header "libavutil/hwcontext_vaapi.h"
       exclude header "libavutil/hwcontext_vdpau.h"
+
+      export *
+   }
+
+   explicit module SWResample [system] [extern_c] {
+      link "avutil"
+      link "m"
+      link "swresample"
+
+      umbrella "libswresample"
 
       export *
    }
