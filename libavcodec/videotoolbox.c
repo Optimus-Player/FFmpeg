@@ -134,7 +134,6 @@ int ff_videotoolbox_alloc_frame(AVCodecContext *avctx, AVFrame *frame)
 
 CFDataRef ff_videotoolbox_avcc_extradata_create(AVCodecContext *avctx)
 {
-    VTContext *vtctx = avctx->internal->hwaccel_priv_data;
     H264Context *h = avctx->priv_data;
     CFDataRef data = NULL;
     uint8_t *p;
@@ -160,11 +159,6 @@ CFDataRef ff_videotoolbox_avcc_extradata_create(AVCodecContext *avctx)
 
     p += 3 + h->ps.pps->data_size;
     av_assert0(p - vt_extradata == vt_extradata_size);
-
-    // save sps header (profile/level) used to create decoder session,
-    // so we can detect changes and recreate it.
-    if (vtctx)
-        memcpy(vtctx->sps, h->ps.sps->data + 1, 3);
 
     data = CFDataCreate(kCFAllocatorDefault, vt_extradata, vt_extradata_size);
     av_free(vt_extradata);
@@ -342,21 +336,11 @@ static int videotoolbox_h264_decode_params(AVCodecContext *avctx,
                                            const uint8_t *buffer,
                                            uint32_t size)
 {
-    VTContext *vtctx = avctx->internal->hwaccel_priv_data;
-    H264Context *h = avctx->priv_data;
-
-    // save sps header (profile/level) used to create decoder session
-    if (!vtctx->sps[0])
-        memcpy(vtctx->sps, h->ps.sps->data + 1, 3);
-
-    if (type == H264_NAL_SPS) {
-        if (size > 4 && memcmp(vtctx->sps, buffer + 1, 3) != 0) {
-            vtctx->reconfig_needed = true;
-            memcpy(vtctx->sps, buffer + 1, 3);
-        }
+    if (type == H264_NAL_SPS || type == H264_NAL_PPS) {
+        VTContext *vtctx = avctx->internal->hwaccel_priv_data;
+        vtctx->parameter_set_did_change = true;
     }
 
-    // pass-through SPS/PPS changes to the decoder
     return ff_videotoolbox_h264_decode_slice(avctx, buffer, size);
 }
 
@@ -887,6 +871,62 @@ static const char *videotoolbox_error_string(OSStatus status)
     return "unknown";
 }
 
+static int videotoolbox_reconfig_decoder(AVCodecContext *avctx) {
+    VTContext *vtctx = avctx->internal->hwaccel_priv_data;
+    vtctx->reconfig_needed = false;
+    vtctx->parameter_set_did_change = false;
+
+    av_log(avctx, AV_LOG_VERBOSE, "Reconfig needed. Restarting VideoToolbox decoder.\n");
+
+    videotoolbox_stop(avctx);
+    if (videotoolbox_start(avctx) != 0) {
+        return AVERROR_EXTERNAL;
+    }
+
+    return 0;
+}
+
+static int videotoolbox_reconfig_decoder_if_needed(AVCodecContext *avctx) {
+    VTContext *vtctx = avctx->internal->hwaccel_priv_data;
+
+    if (vtctx->reconfig_needed) {
+        return videotoolbox_reconfig_decoder(avctx);
+    }
+
+    if (vtctx->parameter_set_did_change) {
+        AVVideotoolboxContext *videotoolbox = videotoolbox_get_context(avctx);
+
+        CFDictionaryRef decoder_spec = videotoolbox_decoder_config_create(videotoolbox->cm_codec_type, avctx);
+        if (!decoder_spec) {
+            av_log(avctx, AV_LOG_ERROR, "decoder specification creation failed\n");
+            return -1;
+        }
+
+        CMVideoFormatDescriptionRef format_description = videotoolbox_format_desc_create(videotoolbox->cm_codec_type,
+                                                                                         decoder_spec,
+                                                                                         avctx->width,
+                                                                                         avctx->height);
+        CFRelease(decoder_spec);
+        if (!format_description) {
+            av_log(avctx, AV_LOG_ERROR, "format description creation failed\n");
+            return -1;
+        }
+
+        if (!VTDecompressionSessionCanAcceptFormatDescription(videotoolbox->session, format_description)) {
+            CFRelease(format_description);
+            return videotoolbox_reconfig_decoder(avctx);
+        }
+        av_log(avctx, AV_LOG_VERBOSE, "VideoToolbox decoder can handle change to parameter set(s); no reconfig needed.\n");
+
+        if (videotoolbox->cm_fmt_desc) {
+            CFRelease(videotoolbox->cm_fmt_desc);
+        }
+        videotoolbox->cm_fmt_desc = format_description;
+    }
+
+    return 0;
+}
+
 static int videotoolbox_common_end_frame(AVCodecContext *avctx, AVFrame *frame)
 {
     OSStatus status;
@@ -898,13 +938,9 @@ static int videotoolbox_common_end_frame(AVCodecContext *avctx, AVFrame *frame)
     frame->crop_top = 0;
     frame->crop_bottom = 0;
 
-    if (vtctx->reconfig_needed == true) {
-        vtctx->reconfig_needed = false;
-        av_log(avctx, AV_LOG_VERBOSE, "VideoToolbox decoder needs reconfig, restarting..\n");
-        videotoolbox_stop(avctx);
-        if (videotoolbox_start(avctx) != 0) {
-            return AVERROR_EXTERNAL;
-        }
+    int reconfig_status = videotoolbox_reconfig_decoder_if_needed(avctx);
+    if (reconfig_status != 0) {
+        return reconfig_status;
     }
 
     if (!videotoolbox->session || !vtctx->bitstream || !vtctx->bitstream_size)
@@ -956,6 +992,11 @@ static int videotoolbox_hevc_decode_params(AVCodecContext *avctx,
                                            const uint8_t *buffer,
                                            uint32_t size)
 {
+    if (type == HEVC_NAL_VPS || type == HEVC_NAL_SPS || type == HEVC_NAL_PPS) {
+        VTContext *vtctx = avctx->internal->hwaccel_priv_data;
+        vtctx->parameter_set_did_change = true;
+    }
+
     return videotoolbox_common_decode_slice(avctx, buffer, size);
 }
 

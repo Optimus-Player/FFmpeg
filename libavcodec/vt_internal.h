@@ -39,8 +39,9 @@ typedef struct VTContext {
     // to ease compatibility with the old API.
     struct AVVideotoolboxContext *vt_ctx;
 
-    // Current H264 parameters (used to trigger decoder restart on SPS changes).
-    uint8_t                     sps[3];
+    // Whether to reconfigure the decoder (if a parameter set change cannot be handled by the decoder
+    // or if a failure occurred).
+    bool                        parameter_set_did_change;
     bool                        reconfig_needed;
 } VTContext;
 
