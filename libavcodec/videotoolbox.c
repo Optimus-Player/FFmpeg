@@ -137,7 +137,23 @@ CFDataRef ff_videotoolbox_avcc_extradata_create(AVCodecContext *avctx)
     H264Context *h = avctx->priv_data;
     CFDataRef data = NULL;
     uint8_t *p;
-    int vt_extradata_size = 6 + 2 + h->ps.sps->data_size + 3 + h->ps.pps->data_size;
+    int i;
+
+    int vt_extradata_size = 6 + 1;
+
+#define H264_COUNT_SIZE_PS(T, t) \
+    int num_##t##ps = 0; \
+    for (i = 0; i < MAX_##T##PS_COUNT; i++) { \
+        AVBufferRef *t##ps_buffer = h->ps.t##ps_list[i]; \
+        if (t##ps_buffer) { \
+            const T##PS *ps = (const T##PS *)t##ps_buffer->data; \
+            vt_extradata_size += 2 + ps->data_size; \
+            num_##t##ps++; \
+        } \
+    }
+    H264_COUNT_SIZE_PS(S, s);
+    H264_COUNT_SIZE_PS(P, p);
+
     uint8_t *vt_extradata = av_malloc(vt_extradata_size);
     if (!vt_extradata)
         return NULL;
@@ -149,15 +165,26 @@ CFDataRef ff_videotoolbox_avcc_extradata_create(AVCodecContext *avctx)
     AV_W8(p + 2, h->ps.sps->data[2]); /* profile compat */
     AV_W8(p + 3, h->ps.sps->data[3]); /* level */
     AV_W8(p + 4, 0xff); /* 6 bits reserved (111111) + 2 bits nal size length - 3 (11) */
-    AV_W8(p + 5, 0xe1); /* 3 bits reserved (111) + 5 bits number of sps (00001) */
-    AV_WB16(p + 6, h->ps.sps->data_size);
-    memcpy(p + 8, h->ps.sps->data, h->ps.sps->data_size);
-    p += 8 + h->ps.sps->data_size;
-    AV_W8(p + 0, 1); /* number of pps */
-    AV_WB16(p + 1, h->ps.pps->data_size);
-    memcpy(p + 3, h->ps.pps->data, h->ps.pps->data_size);
+    AV_W8(p + 5, 0xe0 | num_sps); /* 3 bits reserved (111) + 5 bits number of sps (00001) */
+    p += 6;
 
-    p += 3 + h->ps.pps->data_size;
+#define H264_APPEND_PS(T, t) \
+    for (i = 0; i < MAX_##T##PS_COUNT; i++) { \
+        AVBufferRef *t##ps_buffer = h->ps.t##ps_list[i]; \
+        if (t##ps_buffer) { \
+            const T##PS *ps = (const T##PS *)t##ps_buffer->data; \
+            AV_WB16(p + 0, ps->data_size); \
+            memcpy(p + 2, ps->data, ps->data_size); \
+            p += 2 + ps->data_size; \
+        } \
+    }
+
+    H264_APPEND_PS(S, s);
+
+    AV_W8(p + 0, num_pps);
+    p += 1;
+    H264_APPEND_PS(P, p);
+
     av_assert0(p - vt_extradata == vt_extradata_size);
 
     data = CFDataCreate(kCFAllocatorDefault, vt_extradata, vt_extradata_size);
@@ -180,7 +207,7 @@ CFDataRef ff_videotoolbox_hvcc_extradata_create(AVCodecContext *avctx)
     int vt_extradata_size = 23 + 3 + 3 + 3;
     uint8_t *vt_extradata;
 
-#define COUNT_SIZE_PS(T, t) \
+#define HEVC_COUNT_SIZE_PS(T, t) \
     for (i = 0; i < HEVC_MAX_##T##PS_COUNT; i++) { \
         if (h->ps.t##ps_list[i]) { \
             const HEVC##T##PS *lps = (const HEVC##T##PS *)h->ps.t##ps_list[i]->data; \
@@ -189,9 +216,9 @@ CFDataRef ff_videotoolbox_hvcc_extradata_create(AVCodecContext *avctx)
         } \
     }
 
-    COUNT_SIZE_PS(V, v)
-    COUNT_SIZE_PS(S, s)
-    COUNT_SIZE_PS(P, p)
+    HEVC_COUNT_SIZE_PS(V, v)
+    HEVC_COUNT_SIZE_PS(S, s)
+    HEVC_COUNT_SIZE_PS(P, p)
 
     vt_extradata = av_malloc(vt_extradata_size);
     if (!vt_extradata)
@@ -284,7 +311,7 @@ CFDataRef ff_videotoolbox_hvcc_extradata_create(AVCodecContext *avctx)
 
     p += 23;
 
-#define APPEND_PS(T, t) \
+#define HEVC_APPEND_PS(T, t) \
     /* \
      * bit(1) array_completeness; \
      * unsigned int(1) reserved = 0; \
@@ -306,9 +333,9 @@ CFDataRef ff_videotoolbox_hvcc_extradata_create(AVCodecContext *avctx)
         } \
     }
 
-    APPEND_PS(V, v)
-    APPEND_PS(S, s)
-    APPEND_PS(P, p)
+    HEVC_APPEND_PS(V, v)
+    HEVC_APPEND_PS(S, s)
+    HEVC_APPEND_PS(P, p)
 
     av_assert0(p - vt_extradata == vt_extradata_size);
 
