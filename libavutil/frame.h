@@ -299,7 +299,7 @@ typedef struct AVFrame {
      * This might be different from the first allocated byte
      *
      * Some decoders access areas outside 0,0 - width,height, please
-     * see avcodec_align_dimensions2(). Some filters and swscale can read
+     * see avcodec_align_dimensions3(). Some filters and swscale can read
      * up to 16 bytes beyond the planes, if these filters are to be used,
      * then 16 extra bytes must be allocated.
      *

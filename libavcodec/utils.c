@@ -151,10 +151,9 @@ int ff_side_data_update_matrix_encoding(AVFrame *frame,
     return 0;
 }
 
-void avcodec_align_dimensions2(AVCodecContext *s, int *width, int *height,
-                               int linesize_align[AV_NUM_DATA_POINTERS])
+void avcodec_align_dimensions3(AVCodecContext *s, int *width, int *height,
+                               int *linesize_align)
 {
-    int i;
     int w_align = 1;
     int h_align = 1;
     AVPixFmtDescriptor const *desc = av_pix_fmt_desc_get(s->pix_fmt);
@@ -331,8 +330,18 @@ void avcodec_align_dimensions2(AVCodecContext *s, int *width, int *height,
         *width = FFMAX(*width, 32);
     }
 
-    for (i = 0; i < 4; i++)
-        linesize_align[i] = STRIDE_ALIGN;
+    *linesize_align = STRIDE_ALIGN;
+}
+
+void avcodec_align_dimensions2(AVCodecContext *s, int *width, int *height,
+                               int linesize_align[AV_NUM_DATA_POINTERS])
+{
+    int i;
+
+    avcodec_align_dimensions3(s, width, height, linesize_align);
+
+    for (i = 1; i < 4; i++)
+        linesize_align[i] = linesize_align[0];
 }
 
 void avcodec_align_dimensions(AVCodecContext *s, int *width, int *height)

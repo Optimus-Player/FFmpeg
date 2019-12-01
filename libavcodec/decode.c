@@ -1542,7 +1542,7 @@ static int update_frame_pool(AVCodecContext *avctx, AVFrame *frame)
             pool->width == frame->width && pool->height == frame->height)
             return 0;
 
-        avcodec_align_dimensions2(avctx, &w, &h, pool->stride_align);
+        avcodec_align_dimensions3(avctx, &w, &h, &pool->stride_align);
 
         do {
             // NOTE: do not align linesizes individually, this breaks e.g. assumptions
@@ -1555,7 +1555,7 @@ static int update_frame_pool(AVCodecContext *avctx, AVFrame *frame)
 
             unaligned = 0;
             for (i = 0; i < 4; i++)
-                unaligned |= linesize[i] % pool->stride_align[i];
+                unaligned |= linesize[i] % pool->stride_align;
         } while (unaligned);
 
         tmpsize = av_image_fill_pointers(data, avctx->pix_fmt, h,

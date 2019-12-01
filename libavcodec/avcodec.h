@@ -2348,7 +2348,7 @@ typedef struct AVCodecContext {
      * If AV_GET_BUFFER_FLAG_REF is set in flags then the frame may be reused
      * (read and/or written to if it is writable) later by libavcodec.
      *
-     * avcodec_align_dimensions2() should be used to find the required width and
+     * avcodec_align_dimensions3() should be used to find the required width and
      * height, as they normally need to be rounded up to the next multiple of 16.
      *
      * Some decoders do not support linesizes changing between frames.
@@ -2357,7 +2357,7 @@ typedef struct AVCodecContext {
      * this callback may be called from a different thread, but not from more
      * than one at once. Does not need to be reentrant.
      *
-     * @see avcodec_align_dimensions2()
+     * @see avcodec_align_dimensions3()
      *
      * Audio:
      *
@@ -4685,8 +4685,6 @@ int avcodec_default_get_buffer2(AVCodecContext *s, AVFrame *frame, int flags);
  * Modify width and height values so that they will result in a memory
  * buffer that is acceptable for the codec if you do not use any horizontal
  * padding.
- *
- * May only be used if a codec with AV_CODEC_CAP_DR1 has been opened.
  */
 void avcodec_align_dimensions(AVCodecContext *s, int *width, int *height);
 
@@ -4694,11 +4692,17 @@ void avcodec_align_dimensions(AVCodecContext *s, int *width, int *height);
  * Modify width and height values so that they will result in a memory
  * buffer that is acceptable for the codec if you also ensure that all
  * line sizes are a multiple of the respective linesize_align[i].
- *
- * May only be used if a codec with AV_CODEC_CAP_DR1 has been opened.
  */
 void avcodec_align_dimensions2(AVCodecContext *s, int *width, int *height,
                                int linesize_align[AV_NUM_DATA_POINTERS]);
+
+/**
+ * Modify width and height values so that they will result in a memory
+ * buffer that is acceptable for the codec if you also ensure that all
+ * line sizes are a multiple of linesize_align.
+ */
+void avcodec_align_dimensions3(AVCodecContext *s, int *width, int *height,
+                               int *linesize_align);
 
 /**
  * Converts AVChromaLocation to swscale x/y chroma position.
