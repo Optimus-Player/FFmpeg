@@ -2351,6 +2351,8 @@ typedef struct AVCodecContext {
      * avcodec_align_dimensions3() should be used to find the required width and
      * height, as they normally need to be rounded up to the next multiple of 16.
      *
+     * avcodec_image_fill_linesizes() should be used to find the required linesizes.
+     *
      * Some decoders do not support linesizes changing between frames.
      *
      * If frame multithreading is used and thread_safe_callbacks is set,
@@ -2358,6 +2360,7 @@ typedef struct AVCodecContext {
      * than one at once. Does not need to be reentrant.
      *
      * @see avcodec_align_dimensions3()
+     * @see avcodec_image_fill_linesizes()
      *
      * Audio:
      *
@@ -4703,6 +4706,21 @@ void avcodec_align_dimensions2(AVCodecContext *s, int *width, int *height,
  */
 void avcodec_align_dimensions3(AVCodecContext *s, int *width, int *height,
                                int *linesize_align);
+
+/**
+* Calculates the linesize for each plane of an image.
+*
+* @param linesize array to be filled with the linesize for each plane
+* @param pix_fmt pixel format of the image
+* @param width in: aligned width of the image returned by avcodec_align_dimensions3()
+*              out: modified width to accommodate linesize alignment and codec requirements
+* @param linesize_align linesize alignment returned by avcodec_align_dimensions3()
+* @return >= 0 in case of success, a negative error code otherwise
+*
+* @see avcodec_align_dimensions3()
+*/
+int avcodec_image_fill_linesizes(int linesize[4], enum AVPixelFormat pix_fmt,
+                                 int *width, int linesize_align);
 
 /**
  * Converts AVChromaLocation to swscale x/y chroma position.

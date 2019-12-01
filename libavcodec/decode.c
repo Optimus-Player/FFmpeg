@@ -1536,27 +1536,16 @@ static int update_frame_pool(AVCodecContext *avctx, AVFrame *frame)
         int size[4] = { 0 };
         int w = frame->width;
         int h = frame->height;
-        int tmpsize, unaligned;
+        int tmpsize;
 
         if (pool->format == frame->format &&
             pool->width == frame->width && pool->height == frame->height)
             return 0;
 
         avcodec_align_dimensions3(avctx, &w, &h, &pool->stride_align);
-
-        do {
-            // NOTE: do not align linesizes individually, this breaks e.g. assumptions
-            // that linesize[0] == 2*linesize[1] in the MPEG-encoder for 4:2:2
-            ret = av_image_fill_linesizes(linesize, avctx->pix_fmt, w);
-            if (ret < 0)
-                return ret;
-            // increase alignment of w for next try (rhs gives the lowest bit set in w)
-            w += w & ~(w - 1);
-
-            unaligned = 0;
-            for (i = 0; i < 4; i++)
-                unaligned |= linesize[i] % pool->stride_align;
-        } while (unaligned);
+        ret = avcodec_image_fill_linesizes(linesize, avctx->pix_fmt, &w, pool->stride_align);
+        if (ret < 0)
+            return ret;
 
         tmpsize = av_image_fill_pointers(data, avctx->pix_fmt, h,
                                          NULL, linesize);

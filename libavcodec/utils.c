@@ -359,6 +359,33 @@ void avcodec_align_dimensions(AVCodecContext *s, int *width, int *height)
     *width              = FFALIGN(*width, align);
 }
 
+int avcodec_image_fill_linesizes(int linesize[4], enum AVPixelFormat pix_fmt,
+                                 int *width, int linesize_align) {
+    int i, ret;
+    int w = *width;
+
+    int unaligned;
+    while (1) {
+        // NOTE: do not align linesizes individually, this breaks e.g. assumptions
+        // that linesize[0] == 2*linesize[1] in the MPEG-encoder for 4:2:2
+        ret = av_image_fill_linesizes(linesize, pix_fmt, w);
+        if (ret < 0)
+            return ret;
+
+        unaligned = 0;
+        for (i = 0; i < 4; i++)
+            unaligned |= linesize[i] % linesize_align;
+        if (!unaligned)
+            break;
+
+        // increase alignment of w for next try (rhs gives the lowest bit set in w)
+        w += w & ~(w - 1);
+    }
+
+    *width = w;
+    return 0;
+}
+
 int avcodec_enum_to_chroma_pos(int *xpos, int *ypos, enum AVChromaLocation pos)
 {
     if (pos <= AVCHROMA_LOC_UNSPECIFIED || pos >= AVCHROMA_LOC_NB)
