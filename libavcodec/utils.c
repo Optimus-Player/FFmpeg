@@ -654,6 +654,7 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
     }
 
     avctx->internal->skip_samples_multiplier = 1;
+    avctx->internal->guessed_audio_pts = AV_NOPTS_VALUE;
 
     if (codec->priv_data_size > 0) {
         if (!avctx->priv_data) {

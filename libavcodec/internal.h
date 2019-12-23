@@ -226,6 +226,9 @@ typedef struct AVCodecInternal {
     int initial_sample_rate;
     int initial_channels;
     uint64_t initial_channel_layout;
+
+    int64_t guessed_audio_pts;  // timebase is {1, sample_rate_for_guess}
+    int64_t sample_rate_for_guess;
 } AVCodecInternal;
 
 struct AVCodecDefault {

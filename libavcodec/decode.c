@@ -367,8 +367,8 @@ finish:
  * @param dts the dts field of the decoded AVPacket
  * @return one of the input values, may be AV_NOPTS_VALUE
  */
-static int64_t guess_correct_pts(AVCodecContext *ctx,
-                                 int64_t reordered_pts, int64_t dts)
+static int64_t guess_correct_video_pts(AVCodecContext *ctx,
+                                       int64_t reordered_pts, int64_t dts)
 {
     int64_t pts = AV_NOPTS_VALUE;
 
@@ -391,6 +391,55 @@ static int64_t guess_correct_pts(AVCodecContext *ctx,
         pts = dts;
 
     return pts;
+}
+
+/**
+ * Attempt to guess the PTS for a decoded audio frame.
+ *
+ * As an example of why we need to guess, consider the AAC codec.
+ * The AAC decoder requires a packet to contain exactly 1024 samples.
+ * If a format does not respect this requirement, then the frame PTS
+ * should be different from the packet PTS. Therefore, we cannot simply
+ * use the packet PTS as the frame PTS in this case.
+ *
+ * @param avctx The codec context.
+ * @param frame The frame that was just decoded.
+ * @return The guessed PTS (in packet timebase) or AV_NOPTS_VALUE.
+ */
+static int64_t guess_correct_audio_pts(AVCodecContext *avctx, AVFrame *frame)
+{
+    AVCodecInternal *avci = avctx->internal;
+
+    int sample_rate = frame->sample_rate;
+    AVRational pkt_timebase = avctx->pkt_timebase;
+    if (sample_rate == 0 || pkt_timebase.num == 0 || pkt_timebase.den == 0) {
+        return avci->guessed_audio_pts = AV_NOPTS_VALUE;
+    }
+
+    int64_t guessed_audio_pts = avci->guessed_audio_pts;
+    AVRational sample_rate_q = av_make_q(1, sample_rate);
+
+    if (guessed_audio_pts == AV_NOPTS_VALUE) {
+        int64_t frame_pts = frame->pts;
+        if (frame_pts == AV_NOPTS_VALUE) {
+            return AV_NOPTS_VALUE;
+        }
+
+        guessed_audio_pts = av_rescale_q(frame_pts,
+                                         pkt_timebase,
+                                         sample_rate_q);
+    } else if (avci->sample_rate_for_guess != sample_rate) {
+        guessed_audio_pts = av_rescale(guessed_audio_pts,
+                                       sample_rate,
+                                       avci->sample_rate_for_guess);
+    }
+
+    avci->guessed_audio_pts = guessed_audio_pts + frame->nb_samples;
+    avci->sample_rate_for_guess = sample_rate;
+
+    return av_rescale_q(guessed_audio_pts,
+                        sample_rate_q,
+                        pkt_timebase);
 }
 
 /*
@@ -454,9 +503,9 @@ static int decode_simple_internal(AVCodecContext *avctx, AVFrame *frame)
         if (frame->flags & AV_FRAME_FLAG_DISCARD)
             got_frame = 0;
         if (got_frame)
-            frame->best_effort_timestamp = guess_correct_pts(avctx,
-                                                             frame->pts,
-                                                             frame->pkt_dts);
+            frame->best_effort_timestamp = guess_correct_video_pts(avctx,
+                                                                   frame->pts,
+                                                                   frame->pkt_dts);
     } else if (avctx->codec->type == AVMEDIA_TYPE_AUDIO) {
         uint8_t *side;
         int side_size;
@@ -465,9 +514,6 @@ static int decode_simple_internal(AVCodecContext *avctx, AVFrame *frame)
         uint8_t discard_reason = 0;
 
         if (ret >= 0 && got_frame) {
-            frame->best_effort_timestamp = guess_correct_pts(avctx,
-                                                             frame->pts,
-                                                             frame->pkt_dts);
             if (frame->format == AV_SAMPLE_FMT_NONE)
                 frame->format = avctx->sample_fmt;
             if (!frame->channel_layout)
@@ -476,6 +522,9 @@ static int decode_simple_internal(AVCodecContext *avctx, AVFrame *frame)
                 frame->channels = avctx->channels;
             if (!frame->sample_rate)
                 frame->sample_rate = avctx->sample_rate;
+            frame->best_effort_timestamp = guess_correct_audio_pts(avctx, frame);
+        } else if (ret < 0 && ret != AVERROR(EAGAIN)) {
+            avci->guessed_audio_pts = AV_NOPTS_VALUE;
         }
 
         side= av_packet_get_side_data(avci->last_pkt_props, AV_PKT_DATA_SKIP_SAMPLES, &side_size);
@@ -2043,6 +2092,8 @@ void avcodec_flush_buffers(AVCodecContext *avctx)
     avctx->internal->buffer_pkt_valid = 0;
 
     av_packet_unref(avctx->internal->ds.in_pkt);
+
+    avctx->internal->guessed_audio_pts = AV_NOPTS_VALUE;
 
     if (HAVE_THREADS && avctx->active_thread_type & FF_THREAD_FRAME)
         ff_thread_flush(avctx);
