@@ -1960,6 +1960,14 @@ typedef struct AVFormatContext {
      * - decoding: set by user
      */
     int skip_estimate_duration_from_pts;
+
+    /**
+     * The iconv-compatible identifier of the packet text's character encoding, if known.
+     * Only applicable to subtitle formats.
+     * - muxing: unused
+     * - demuxing: set by libavformat
+     */
+    const char *sub_charenc;
 } AVFormatContext;
 
 #if FF_API_FORMAT_GET_SET

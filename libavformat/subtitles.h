@@ -31,10 +31,11 @@ enum sub_sort {
     SUB_SORT_POS_TS,        ///< sort by position, then timestamps
 };
 
-enum ff_utf_type {
-    FF_UTF_8,       // or other 8 bit encodings
-    FF_UTF16LE,
-    FF_UTF16BE,
+enum ff_text_reader_type {
+    FF_TEXT_READER_TYPE_PASSTHROUGH,
+    FF_TEXT_READER_TYPE_UTF8,
+    FF_TEXT_READER_TYPE_UTF16LE,
+    FF_TEXT_READER_TYPE_UTF16BE,
 };
 
 typedef struct {

@@ -29,25 +29,26 @@ void ff_text_init_avio(void *s, FFTextReader *r, AVIOContext *pb)
     int i;
     r->pb = pb;
     r->buf_pos = r->buf_len = 0;
-    r->type = FF_UTF_8;
+    r->type = FF_TEXT_READER_TYPE_PASSTHROUGH;
     for (i = 0; i < 2; i++)
         r->buf[r->buf_len++] = avio_r8(r->pb);
     if (strncmp("\xFF\xFE", r->buf, 2) == 0) {
-        r->type = FF_UTF16LE;
+        r->type = FF_TEXT_READER_TYPE_UTF16LE;
         r->buf_pos += 2;
     } else if (strncmp("\xFE\xFF", r->buf, 2) == 0) {
-        r->type = FF_UTF16BE;
+        r->type = FF_TEXT_READER_TYPE_UTF16BE;
         r->buf_pos += 2;
     } else {
         r->buf[r->buf_len++] = avio_r8(r->pb);
         if (strncmp("\xEF\xBB\xBF", r->buf, 3) == 0) {
-            // UTF8
+            r->type = FF_TEXT_READER_TYPE_UTF8;
             r->buf_pos += 3;
         }
     }
-    if (s && (r->type == FF_UTF16LE || r->type == FF_UTF16BE))
+    if (s && r->type != FF_TEXT_READER_TYPE_PASSTHROUGH)
         av_log(s, AV_LOG_INFO,
-               "UTF16 is automatically converted to UTF8, do not specify a character encoding\n");
+               "Unicode text will automatically be converted to UTF-8 by the demuxer, "
+               "so there is no need to set the character encoding property of the decoder.\n");
 }
 
 void ff_text_init_buf(FFTextReader *r, void *buf, size_t size)
@@ -68,9 +69,9 @@ int ff_text_r8(FFTextReader *r)
     uint8_t tmp;
     if (r->buf_pos < r->buf_len)
         return r->buf[r->buf_pos++];
-    if (r->type == FF_UTF16LE) {
+    if (r->type == FF_TEXT_READER_TYPE_UTF16LE) {
         GET_UTF16(val, avio_rl16(r->pb), return 0;)
-    } else if (r->type == FF_UTF16BE) {
+    } else if (r->type == FF_TEXT_READER_TYPE_UTF16BE) {
         GET_UTF16(val, avio_rb16(r->pb), return 0;)
     } else {
         return avio_r8(r->pb);

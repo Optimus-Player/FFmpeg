@@ -148,6 +148,11 @@ try_again:
 
     ff_subtitles_queue_finalize(s, &scc->q);
 
+    if (tr.type != FF_TEXT_READER_TYPE_PASSTHROUGH) {
+        // `FFTextReader` converts Unicode code units to UTF-8.
+        s->sub_charenc = "UTF-8";
+    }
+
     return ret;
 }
 

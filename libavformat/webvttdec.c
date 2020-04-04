@@ -164,6 +164,8 @@ static int webvtt_read_header(AVFormatContext *s)
 
     ff_subtitles_queue_finalize(s, &webvtt->q);
 
+    s->sub_charenc = "UTF-8";
+
 end:
     av_bprint_finalize(&cue,    NULL);
     av_bprint_finalize(&header, NULL);

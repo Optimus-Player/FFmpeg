@@ -211,6 +211,7 @@ static int lrc_read_header(AVFormatContext *s)
         }
     }
     ff_subtitles_queue_finalize(s, &lrc->q);
+    s->sub_charenc = "UTF-8";
     ff_metadata_conv_ctx(s, NULL, ff_lrc_metadata_conv);
     av_bprint_finalize(&line, NULL);
     return 0;

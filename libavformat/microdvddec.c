@@ -154,6 +154,7 @@ static int microdvd_read_header(AVFormatContext *s)
     avpriv_set_pts_info(st, 64, pts_info.den, pts_info.num);
     st->codecpar->codec_type = AVMEDIA_TYPE_SUBTITLE;
     st->codecpar->codec_id   = AV_CODEC_ID_MICRODVD;
+    s->sub_charenc = "UTF-8";
     return 0;
 }
 

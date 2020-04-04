@@ -159,6 +159,11 @@ static int ass_read_header(AVFormatContext *s)
 
     ff_subtitles_queue_finalize(s, &ass->q);
 
+    if (tr.type != FF_TEXT_READER_TYPE_PASSTHROUGH) {
+        // `FFTextReader` converts Unicode code units to UTF-8.
+        s->sub_charenc = "UTF-8";
+    }
+
 end:
     av_bprint_finalize(&header, NULL);
     av_bprint_finalize(&line,   NULL);
