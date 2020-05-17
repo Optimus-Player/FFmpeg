@@ -129,7 +129,7 @@ static int scantag(const char* in, char* buffer, int* lenp) {
 int ff_htmlmarkup_to_ass(void *log_ctx, AVBPrint *dst, const char *in)
 {
     char *param, buffer[128];
-    int len, tag_close, sptr = 0, line_start = 1, an = 0, end = 0;
+    int len, tag_close, sptr = 0, line_start = 1, an = 0;
     int closing_brace_missing = 0;
     int i, likely_a_tag;
 
@@ -160,13 +160,13 @@ int ff_htmlmarkup_to_ass(void *log_ctx, AVBPrint *dst, const char *in)
 
     memset(&stack[0], 0, sizeof(stack[0]));
 
-    for (; !end && *in; in++) {
+    for (; *in; in++) {
         switch (*in) {
         case '\r':
             break;
         case '\n':
-            if (line_start) {
-                end = 1;
+            // Trim starting newlines.
+            if (dst->len == 0) {
                 break;
             }
             rstrip_spaces_buf(dst);

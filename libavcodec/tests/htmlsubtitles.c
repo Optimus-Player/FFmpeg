@@ -31,6 +31,9 @@ static const char * const test_cases[] = {
     "<b> foo <I> bar </B> bla </i>",        // broken nesting
 
     "A<br>B<BR/>C<br  / >D<  Br >E<brk><brk/>", // misc line breaks
+
+    "A\n\nB",  // empty line
+    "\nA",     // empty first line
 };
 
 int main(void)
