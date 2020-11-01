@@ -3,21 +3,34 @@
 # A script to build external libraries so that they may be linked
 # by FFmpeg and embedded in the Optimus Player macOS app.
 #
-# Copyright (c) 2019 Darren Mo. Licensed under LGPL version 2.1.
+# Copyright (c) 2019–2020 Darren Mo. Licensed under LGPL version 2.1.
 
-if [ "$#" -ne 1 ]; then
-   echo "Usage: \"$0\" install_directory" 1>&2
+if [ "$#" -ne 2 ]; then
+   echo "Usage: \"$0\" macos_deployment_target install_directory" 1>&2
    exit 2
 fi
 
-PREFIX="$1"
+MACOS_DEPLOYMENT_TARGET="$1"
+PREFIX="$2"
 
 SCRIPT_DIR="$(dirname "$BASH_SOURCE")"
 cd "$SCRIPT_DIR"
 
 cd "dav1d"
-meson --prefix="$PREFIX" build --buildtype release || exit $?
-ninja install -C build || exit $?
+DAV1D_BUILD_DIR=build-release
+meson setup \
+   "$DAV1D_BUILD_DIR" \
+      || exit $?
+meson configure \
+   --prefix "$PREFIX" \
+   --buildtype release \
+   -D c_args="-mmacos-version-min=$MACOS_DEPLOYMENT_TARGET" \
+   -D c_link_args="-mmacos-version-min=$MACOS_DEPLOYMENT_TARGET" \
+   "$DAV1D_BUILD_DIR" \
+      || exit $?
+meson install \
+   -C "$DAV1D_BUILD_DIR" \
+      || exit $?
 
 INSTALL_NAME_DIR="@executable_path/../Frameworks"
 for PATH_TO_DYLIB in "$(find -E "$PREFIX/lib" -regex '.*/[^/.]+\.[0123456789]+\.dylib')"; do

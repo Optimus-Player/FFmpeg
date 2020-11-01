@@ -3,7 +3,7 @@
 # A script to build FFmpeg so that it may be embedded in the
 # Optimus Player macOS app.
 #
-# Copyright (c) 2019 Darren Mo. Licensed under LGPL version 2.1.
+# Copyright (c) 2019–2020 Darren Mo. Licensed under LGPL version 2.1.
 #
 # TODO: Enable the following external libraries in order to
 # support more formats/codecs/protocols.
@@ -25,13 +25,18 @@
 SCRIPT_DIR="$(dirname "$BASH_SOURCE")"
 cd "$SCRIPT_DIR"
 
+MACOS_DEPLOYMENT_TARGET="10.14"
+
 # Hack: We install the external libraries in a directory whose name
 # does not contain spaces because the configure script does not
 # properly handle spaces in the include/library paths returned by
 # pkg-config.
 EXTERNAL_LIBRARIES_DIR="$HOME/Library/org.ffmpeg.optimus-player"
 rm -rf "$EXTERNAL_LIBRARIES_DIR"
-external-libraries/build-for-optimus-player "$EXTERNAL_LIBRARIES_DIR" || exit $?
+external-libraries/build-for-optimus-player \
+   "$MACOS_DEPLOYMENT_TARGET" \
+   "$EXTERNAL_LIBRARIES_DIR" \
+      || exit $?
 
 export DESTDIR="$SCRIPT_DIR/optimus-player-build"
 
@@ -44,7 +49,8 @@ export PKG_CONFIG_PATH="$EXTERNAL_LIBRARIES_DIR/lib/pkgconfig"
    --install-name-dir="@executable_path/../Frameworks" \
    --disable-static \
    --enable-shared \
-   --extra-ldflags="-Z -L/usr/lib -F/System/Library/Frameworks" \
+   --extra-cflags="-mmacos-version-min=$MACOS_DEPLOYMENT_TARGET" \
+   --extra-ldflags="-mmacos-version-min=$MACOS_DEPLOYMENT_TARGET -Z -L/usr/lib -F/System/Library/Frameworks" \
    --disable-programs \
    --disable-doc \
    --disable-avdevice \
