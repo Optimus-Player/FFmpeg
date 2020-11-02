@@ -25,7 +25,7 @@ meson configure \
    --prefix "$PREFIX" \
    --buildtype release \
    -D c_args="-mmacos-version-min=$MACOS_DEPLOYMENT_TARGET" \
-   -D c_link_args="-mmacos-version-min=$MACOS_DEPLOYMENT_TARGET" \
+   -D c_link_args="-mmacos-version-min=$MACOS_DEPLOYMENT_TARGET -Z -L/usr/lib -F/System/Library/Frameworks" \
    "$DAV1D_BUILD_DIR" \
       || exit $?
 meson install \
