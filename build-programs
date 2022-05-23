@@ -3,14 +3,15 @@
 # A script to build the FFmpeg programs. This script is derived
 # from the `build-for-optimus-player` script.
 #
-# Copyright (c) 2019–2020 Darren Mo. Licensed under LGPL version 2.1.
+# Copyright (c) 2019–2022 Darren Mo. Licensed under LGPL version 2.1.
 
 SCRIPT_DIR="$(dirname "$BASH_SOURCE")"
 cd "$SCRIPT_DIR"
+SCRIPT_DIR="$PWD"
 
 MACOS_DEPLOYMENT_TARGET="10.14"
 
-export DESTDIR="$SCRIPT_DIR/programs-build"
+export DESTDIR="$SCRIPT_DIR/programs-build.nosync"
 
 make clean
 rm -rf "$DESTDIR"

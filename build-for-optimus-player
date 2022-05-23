@@ -31,7 +31,7 @@ MACOS_DEPLOYMENT_TARGET="10.14"
 output-dir-for-arch() {
    local ARCH="$1"
 
-   echo "$SCRIPT_DIR/optimus-player-build-$ARCH"
+   echo "$SCRIPT_DIR/optimus-player-build-$ARCH.nosync"
 }
 
 build-for-arch() {
@@ -110,7 +110,7 @@ for ARCH in "${ARCHS[@]}"; do
    build-for-arch "$ARCH"
 done
 
-FINAL_OUTPUT_DIR="$SCRIPT_DIR/optimus-player-build"
+FINAL_OUTPUT_DIR="$SCRIPT_DIR/optimus-player-build.nosync"
 rm -rf "$FINAL_OUTPUT_DIR"
 cp -R "$(output-dir-for-arch ${ARCHS[0]})" "$FINAL_OUTPUT_DIR"
 

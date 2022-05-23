@@ -27,7 +27,7 @@ if [ ! -f "$CROSS_FILE" ]; then
 fi
 COMMON_CROSS_FILE="$SCRIPT_DIR/meson-cross-file-common.ini"
 
-DAV1D_BUILD_DIR="build-release-$ARCH"
+DAV1D_BUILD_DIR="build-release-$ARCH.nosync"
 COMPILER_ARGS="-arch $ARCH -mmacos-version-min=$MACOS_DEPLOYMENT_TARGET"
 LINKER_ARGS="$COMPILER_ARGS -Z -L/usr/lib -F/System/Library/Frameworks"
 
