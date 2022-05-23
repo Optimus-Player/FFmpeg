@@ -96,7 +96,7 @@ build-for-arch() {
    make install || exit $?
 
    cp module.modulemap "$DESTDIR/include/"
-   cp "$EXTERNAL_LIBRARIES_DIR"/lib/*.dylib "$DESTDIR/lib/"
+   cp -R "$EXTERNAL_LIBRARIES_DIR"/lib/*.dylib "$DESTDIR/lib/"
 
    unset PKG_CONFIG_PATH
    unset DESTDIR
