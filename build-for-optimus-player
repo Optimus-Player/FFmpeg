@@ -3,7 +3,7 @@
 # A script to build FFmpeg so that it may be embedded in the
 # Optimus Player macOS app.
 #
-# Copyright (c) 2019–2020 Darren Mo. Licensed under LGPL version 2.1.
+# Copyright (c) 2019–2022 Darren Mo. Licensed under LGPL version 2.1.
 #
 # TODO: Enable the following external libraries in order to
 # support more formats/codecs/protocols.
@@ -24,56 +24,113 @@
 
 SCRIPT_DIR="$(dirname "$BASH_SOURCE")"
 cd "$SCRIPT_DIR"
+SCRIPT_DIR="$PWD"
 
 MACOS_DEPLOYMENT_TARGET="10.14"
 
-# Hack: We install the external libraries in a directory whose name
-# does not contain spaces because the configure script does not
-# properly handle spaces in the include/library paths returned by
-# pkg-config.
-EXTERNAL_LIBRARIES_DIR="$HOME/Library/org.ffmpeg.optimus-player"
-rm -rf "$EXTERNAL_LIBRARIES_DIR"
-external-libraries/build-for-optimus-player \
-   "$MACOS_DEPLOYMENT_TARGET" \
-   "$EXTERNAL_LIBRARIES_DIR" \
-      || exit $?
+output-dir-for-arch() {
+   local ARCH="$1"
 
-export DESTDIR="$SCRIPT_DIR/optimus-player-build"
+   echo "$SCRIPT_DIR/optimus-player-build-$ARCH"
+}
 
-make clean
-rm -rf "$DESTDIR"
+build-for-arch() {
+   local ARCH="$1"
 
-export PKG_CONFIG_PATH="$EXTERNAL_LIBRARIES_DIR/lib/pkgconfig"
-./configure \
-   --prefix="/" \
-   --install-name-dir="@executable_path/../Frameworks" \
-   --disable-static \
-   --enable-shared \
-   --extra-cflags="-mmacos-version-min=$MACOS_DEPLOYMENT_TARGET" \
-   --extra-ldflags="-mmacos-version-min=$MACOS_DEPLOYMENT_TARGET -Z -L/usr/lib -F/System/Library/Frameworks" \
-   --disable-programs \
-   --disable-doc \
-   --disable-avdevice \
-   --disable-postproc \
-   --disable-avfilter \
-   --disable-w32threads \
-   --disable-os2threads \
-   --disable-encoders \
-   --disable-muxers \
-   --disable-devices \
-   --disable-filters \
-   --disable-amf \
-   --disable-cuvid \
-   --disable-d3d11va \
-   --disable-dxva2 \
-   --disable-ffnvcodec \
-   --disable-nvdec \
-   --disable-vaapi \
-   --disable-vdpau \
-   --enable-libdav1d \
-   || exit $?
+   # Hack: We install the external libraries in a directory whose name
+   # does not contain spaces because the configure script does not
+   # properly handle spaces in the include/library paths returned by
+   # pkg-config.
+   local EXTERNAL_LIBRARIES_DIR="$HOME/Library/org.ffmpeg.optimus-player/$ARCH"
+   rm -rf "$EXTERNAL_LIBRARIES_DIR"
+   external-libraries/build-for-optimus-player \
+      "$ARCH" \
+      "$MACOS_DEPLOYMENT_TARGET" \
+      "$EXTERNAL_LIBRARIES_DIR" \
+         || exit $?
 
-make install || exit $?
+   export DESTDIR="$(output-dir-for-arch "$ARCH")"
+   export PKG_CONFIG_PATH="$EXTERNAL_LIBRARIES_DIR/lib/pkgconfig"
 
-cp module.modulemap "$DESTDIR/include/"
-cp "$EXTERNAL_LIBRARIES_DIR"/lib/*.dylib "$DESTDIR/lib/"
+   make clean
+   rm -rf "$DESTDIR"
+
+   local ARCH_FOR_FFMPEG="$ARCH"
+   if [ "$ARCH_FOR_FFMPEG" = arm64 ]; then
+      ARCH_FOR_FFMPEG=aarch64
+   fi
+
+   local COMPILER_ARGS="-arch $ARCH -mmacos-version-min=$MACOS_DEPLOYMENT_TARGET"
+   local LINKER_ARGS="$COMPILER_ARGS -Z -L/usr/lib -F/System/Library/Frameworks"
+
+   ./configure \
+      --prefix="/" \
+      --install-name-dir="@executable_path/../Frameworks" \
+      --disable-static \
+      --enable-shared \
+      --arch="$ARCH_FOR_FFMPEG" \
+      --extra-cflags="$COMPILER_ARGS" \
+      --extra-ldflags="$LINKER_ARGS" \
+      --disable-programs \
+      --disable-doc \
+      --disable-avdevice \
+      --disable-postproc \
+      --disable-avfilter \
+      --disable-w32threads \
+      --disable-os2threads \
+      --disable-encoders \
+      --disable-muxers \
+      --disable-devices \
+      --disable-filters \
+      --disable-amf \
+      --disable-cuvid \
+      --disable-d3d11va \
+      --disable-dxva2 \
+      --disable-ffnvcodec \
+      --disable-nvdec \
+      --disable-vaapi \
+      --disable-vdpau \
+      --enable-libdav1d \
+         || exit $?
+
+   make install || exit $?
+
+   cp module.modulemap "$DESTDIR/include/"
+   cp "$EXTERNAL_LIBRARIES_DIR"/lib/*.dylib "$DESTDIR/lib/"
+
+   unset PKG_CONFIG_PATH
+   unset DESTDIR
+}
+
+ARCHS=(
+   arm64
+   x86_64
+)
+for ARCH in "${ARCHS[@]}"; do
+   build-for-arch "$ARCH"
+done
+
+FINAL_OUTPUT_DIR="$SCRIPT_DIR/optimus-player-build"
+rm -rf "$FINAL_OUTPUT_DIR"
+cp -R "$(output-dir-for-arch ${ARCHS[0]})" "$FINAL_OUTPUT_DIR"
+
+for FILE in "$FINAL_OUTPUT_DIR/lib/"*.dylib; do
+   if [ -L "$FILE" ]; then
+      continue
+   fi
+
+   LIBRARY_FILE_NAME="$(basename "$FILE")"
+
+   LIPO_ARGS=()
+   for ARCH in "${ARCHS[@]}"; do
+      LIPO_ARGS+=(
+         "-arch" "$ARCH"
+         "$(output-dir-for-arch "$ARCH")/lib/$LIBRARY_FILE_NAME"
+      )
+   done
+
+   lipo -create \
+      "${LIPO_ARGS[@]}" \
+      -output "$FINAL_OUTPUT_DIR/lib/$LIBRARY_FILE_NAME" \
+         || exit $?
+done

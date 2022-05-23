@@ -3,29 +3,44 @@
 # A script to build external libraries so that they may be linked
 # by FFmpeg and embedded in the Optimus Player macOS app.
 #
-# Copyright (c) 2019–2020 Darren Mo. Licensed under LGPL version 2.1.
+# Copyright (c) 2019–2022 Darren Mo. Licensed under LGPL version 2.1.
 
-if [ "$#" -ne 2 ]; then
-   echo "Usage: \"$0\" macos_deployment_target install_directory" 1>&2
+if [ "$#" -ne 3 ]; then
+   echo "Usage: \"$0\" architecture macos_deployment_target install_directory" 1>&2
    exit 2
 fi
 
-MACOS_DEPLOYMENT_TARGET="$1"
-PREFIX="$2"
+ARCH="$1"
+MACOS_DEPLOYMENT_TARGET="$2"
+PREFIX="$3"
 
 SCRIPT_DIR="$(dirname "$BASH_SOURCE")"
 cd "$SCRIPT_DIR"
+SCRIPT_DIR="$PWD"
 
 cd "dav1d"
-DAV1D_BUILD_DIR=build-release
+
+CROSS_FILE="$SCRIPT_DIR/meson-cross-file-$ARCH.ini"
+if [ ! -f "$CROSS_FILE" ]; then
+   echo "Cross file \`$CROSS_FILE\` for architecture \`$ARCH\` does not exist." 1>&2
+   exit 2
+fi
+COMMON_CROSS_FILE="$SCRIPT_DIR/meson-cross-file-common.ini"
+
+DAV1D_BUILD_DIR="build-release-$ARCH"
+COMPILER_ARGS="-arch $ARCH -mmacos-version-min=$MACOS_DEPLOYMENT_TARGET"
+LINKER_ARGS="$COMPILER_ARGS -Z -L/usr/lib -F/System/Library/Frameworks"
+
 meson setup \
+   --cross-file "$COMMON_CROSS_FILE" \
+   --cross-file "$CROSS_FILE" \
    "$DAV1D_BUILD_DIR" \
       || exit $?
 meson configure \
    --prefix "$PREFIX" \
    --buildtype release \
-   -D c_args="-mmacos-version-min=$MACOS_DEPLOYMENT_TARGET" \
-   -D c_link_args="-mmacos-version-min=$MACOS_DEPLOYMENT_TARGET -Z -L/usr/lib -F/System/Library/Frameworks" \
+   -D c_args="$COMPILER_ARGS" \
+   -D c_link_args="$LINKER_ARGS" \
    "$DAV1D_BUILD_DIR" \
       || exit $?
 meson install \
@@ -35,5 +50,8 @@ meson install \
 INSTALL_NAME_DIR="@executable_path/../Frameworks"
 for PATH_TO_DYLIB in "$(find -E "$PREFIX/lib" -regex '.*/[^/.]+\.[0123456789]+\.dylib')"; do
    DYLIB_FILE_NAME="$(basename "$PATH_TO_DYLIB")"
-   install_name_tool -id "$INSTALL_NAME_DIR/$DYLIB_FILE_NAME" "$PATH_TO_DYLIB" || exit $?
+   install_name_tool \
+      -id "$INSTALL_NAME_DIR/$DYLIB_FILE_NAME" \
+      "$PATH_TO_DYLIB" \
+         || exit $?
 done
