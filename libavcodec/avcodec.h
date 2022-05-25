@@ -28,6 +28,12 @@
  */
 
 #include <errno.h>
+
+#ifdef __APPLE__
+#include <os/availability.h>
+#include <sys/qos.h>
+#endif /* __APPLE__ */
+
 #include "libavutil/samplefmt.h"
 #include "libavutil/attributes.h"
 #include "libavutil/avutil.h"
@@ -2825,6 +2831,18 @@ typedef struct AVCodecContext {
      * - decoding: Set by user.
      */
     int thread_count;
+
+#ifdef __APPLE__
+    /**
+     * The quality-of-service class to use as the task execution priority.
+     *
+     * The default value is `QOS_CLASS_UNSPECIFIED`.
+     *
+     * - encoding: Set by user.
+     * - decoding: Set by user.
+     */
+    qos_class_t thread_qos_class API_AVAILABLE(macos(10.10), ios(8.0));
+#endif /* __APPLE__ */
 
     /**
      * Which multithreading methods to use.

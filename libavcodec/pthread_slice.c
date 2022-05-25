@@ -156,7 +156,11 @@ int ff_slice_thread_init(AVCodecContext *avctx)
 
     avctx->internal->thread_ctx = c = av_mallocz(sizeof(*c));
     mainfunc = avctx->codec->caps_internal & FF_CODEC_CAP_SLICE_THREAD_HAS_MF ? &main_function : NULL;
-    if (!c || (thread_count = avpriv_slicethread_create(&c->thread, avctx, worker_func, mainfunc, thread_count)) <= 1) {
+    if (!c || (thread_count = avpriv_slicethread_create(&c->thread, avctx, worker_func, mainfunc, thread_count
+#ifdef __APPLE__
+        , avctx->thread_qos_class
+#endif /* __APPLE__ */
+    )) <= 1) {
         if (c)
             avpriv_slicethread_free(&c->thread);
         av_freep(&avctx->internal->thread_ctx);

@@ -23,6 +23,10 @@
 
 #include "config.h"
 
+#ifdef __APPLE__
+#include <sys/qos.h>
+#endif /* __APPLE__ */
+
 #include "libavutil/common.h"
 #include "libavutil/cpu.h"
 #include "libavutil/mem.h"
@@ -75,7 +79,11 @@ static int thread_execute(AVFilterContext *ctx, avfilter_action_func *func,
 
 static int thread_init_internal(ThreadContext *c, int nb_threads)
 {
-    nb_threads = avpriv_slicethread_create(&c->thread, c, worker_func, NULL, nb_threads);
+    nb_threads = avpriv_slicethread_create(&c->thread, c, worker_func, NULL, nb_threads
+#ifdef __APPLE__
+        , QOS_CLASS_UNSPECIFIED
+#endif /* __APPLE__ */
+    );
     if (nb_threads <= 1)
         avpriv_slicethread_free(&c->thread);
     return FFMAX(nb_threads, 1);

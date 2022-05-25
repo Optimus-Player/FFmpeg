@@ -16,7 +16,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include "config.h"
+
 #include <stdatomic.h>
+
+#ifdef __APPLE__
+#include <Availability.h>
+#include <pthread/qos.h>
+#endif /* __APPLE__ */
+
 #include "slicethread.h"
 #include "mem.h"
 #include "thread.h"
@@ -94,10 +102,16 @@ static void *attribute_align_arg thread_worker(void *v)
 int avpriv_slicethread_create(AVSliceThread **pctx, void *priv,
                               void (*worker_func)(void *priv, int jobnr, int threadnr, int nb_jobs, int nb_threads),
                               void (*main_func)(void *priv),
-                              int nb_threads)
+                              int nb_threads
+#ifdef __APPLE__
+                              , qos_class_t qos_class
+#endif /* __APPLE__ */
+                              )
 {
     AVSliceThread *ctx;
     int nb_workers, i;
+    int err = 0;
+    pthread_attr_t thread_attributes;
 
     av_assert0(nb_threads >= 0);
     if (!nb_threads) {
@@ -112,12 +126,28 @@ int avpriv_slicethread_create(AVSliceThread **pctx, void *priv,
     if (!main_func)
         nb_workers--;
 
+    err = AVERROR(pthread_attr_init(&thread_attributes));
+    if (err) return err;
+
+#if defined(__APPLE__) && (__MAC_OS_X_VERSION_MIN_REQUIRED >= 101000 || __IPHONE_OS_VERSION_MIN_REQUIRED >= 80000)
+    if (qos_class != QOS_CLASS_UNSPECIFIED) {
+        err = AVERROR(pthread_attr_set_qos_class_np(&thread_attributes, qos_class, 0));
+        if (err) {
+            pthread_attr_destroy(&thread_attributes);
+            return err;
+        }
+    }
+#endif /* defined(__APPLE__) && (__MAC_OS_X_VERSION_MIN_REQUIRED >= 101000 || __IPHONE_OS_VERSION_MIN_REQUIRED >= 80000) */
+
     *pctx = ctx = av_mallocz(sizeof(*ctx));
-    if (!ctx)
+    if (!ctx) {
+        pthread_attr_destroy(&thread_attributes);
         return AVERROR(ENOMEM);
+    }
 
     if (nb_workers && !(ctx->workers = av_calloc(nb_workers, sizeof(*ctx->workers)))) {
         av_freep(pctx);
+        pthread_attr_destroy(&thread_attributes);
         return AVERROR(ENOMEM);
     }
 
@@ -137,20 +167,18 @@ int avpriv_slicethread_create(AVSliceThread **pctx, void *priv,
 
     for (i = 0; i < nb_workers; i++) {
         WorkerContext *w = &ctx->workers[i];
-        int ret;
         w->ctx = ctx;
         pthread_mutex_init(&w->mutex, NULL);
         pthread_cond_init(&w->cond, NULL);
         pthread_mutex_lock(&w->mutex);
         w->done = 0;
 
-        if (ret = pthread_create(&w->thread, NULL, thread_worker, w)) {
+        if (err = AVERROR(pthread_create(&w->thread, &thread_attributes, thread_worker, w))) {
             ctx->nb_threads = main_func ? i : i + 1;
             pthread_mutex_unlock(&w->mutex);
             pthread_cond_destroy(&w->cond);
             pthread_mutex_destroy(&w->mutex);
-            avpriv_slicethread_free(pctx);
-            return AVERROR(ret);
+            goto error;
         }
 
         while (!w->done)
@@ -158,7 +186,15 @@ int avpriv_slicethread_create(AVSliceThread **pctx, void *priv,
         pthread_mutex_unlock(&w->mutex);
     }
 
+    pthread_attr_destroy(&thread_attributes);
+
     return nb_threads;
+
+error:
+    pthread_attr_destroy(&thread_attributes);
+    avpriv_slicethread_free(pctx);
+
+    return err;
 }
 
 void avpriv_slicethread_execute(AVSliceThread *ctx, int nb_jobs, int execute_main)

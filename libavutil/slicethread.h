@@ -19,6 +19,10 @@
 #ifndef AVUTIL_SLICETHREAD_H
 #define AVUTIL_SLICETHREAD_H
 
+#ifdef __APPLE__
+#include <sys/qos.h>
+#endif /* __APPLE__ */
+
 typedef struct AVSliceThread AVSliceThread;
 
 /**
@@ -28,12 +32,17 @@ typedef struct AVSliceThread AVSliceThread;
  * @param worker_func callback function to be executed
  * @param main_func special callback function, called from main thread, may be NULL
  * @param nb_threads number of threads, 0 for automatic, must be >= 0
+ * @param qos_class quality-of-service class that the threads should use
  * @return return number of threads or negative AVERROR on failure
  */
 int avpriv_slicethread_create(AVSliceThread **pctx, void *priv,
                               void (*worker_func)(void *priv, int jobnr, int threadnr, int nb_jobs, int nb_threads),
                               void (*main_func)(void *priv),
-                              int nb_threads);
+                              int nb_threads
+#ifdef __APPLE__
+                              , qos_class_t qos_class
+#endif /* __APPLE__ */
+                              );
 
 /**
  * Execute slice threading.

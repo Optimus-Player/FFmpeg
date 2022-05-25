@@ -27,6 +27,11 @@
 #include <stdatomic.h>
 #include <stdint.h>
 
+#ifdef __APPLE__
+#include <Availability.h>
+#include <pthread/qos.h>
+#endif /* __APPLE__ */
+
 #include "avcodec.h"
 #include "hwaccel.h"
 #include "internal.h"
@@ -727,6 +732,7 @@ int ff_frame_thread_init(AVCodecContext *avctx)
     AVCodecContext *src = avctx;
     FrameThreadContext *fctx;
     int i, err = 0;
+    pthread_attr_t thread_attributes;
 
     if (!thread_count) {
         int nb_cpus = av_cpu_count();
@@ -746,13 +752,30 @@ int ff_frame_thread_init(AVCodecContext *avctx)
         return 0;
     }
 
+    err = AVERROR(pthread_attr_init(&thread_attributes));
+    if (err) return err;
+
+#if defined(__APPLE__) && (__MAC_OS_X_VERSION_MIN_REQUIRED >= 101000 || __IPHONE_OS_VERSION_MIN_REQUIRED >= 80000)
+    qos_class_t qos_class = avctx->thread_qos_class;
+    if (qos_class != QOS_CLASS_UNSPECIFIED) {
+        err = AVERROR(pthread_attr_set_qos_class_np(&thread_attributes, qos_class, 0));
+        if (err) {
+            pthread_attr_destroy(&thread_attributes);
+            return err;
+        }
+    }
+#endif /* defined(__APPLE__) && (__MAC_OS_X_VERSION_MIN_REQUIRED >= 101000 || __IPHONE_OS_VERSION_MIN_REQUIRED >= 80000) */
+
     avctx->internal->thread_ctx = fctx = av_mallocz(sizeof(FrameThreadContext));
-    if (!fctx)
+    if (!fctx) {
+        pthread_attr_destroy(&thread_attributes);
         return AVERROR(ENOMEM);
+    }
 
     fctx->threads = av_mallocz_array(thread_count, sizeof(PerThreadContext));
     if (!fctx->threads) {
         av_freep(&avctx->internal->thread_ctx);
+        pthread_attr_destroy(&thread_attributes);
         return AVERROR(ENOMEM);
     }
 
@@ -825,15 +848,18 @@ int ff_frame_thread_init(AVCodecContext *avctx)
 
         atomic_init(&p->debug_threads, (copy->debug & FF_DEBUG_THREADS) != 0);
 
-        err = AVERROR(pthread_create(&p->thread, NULL, frame_worker_thread, p));
+        err = AVERROR(pthread_create(&p->thread, &thread_attributes, frame_worker_thread, p));
         p->thread_init= !err;
         if(!p->thread_init)
             goto error;
     }
 
+    pthread_attr_destroy(&thread_attributes);
+
     return 0;
 
 error:
+    pthread_attr_destroy(&thread_attributes);
     ff_frame_thread_free(avctx, i+1);
 
     return err;
